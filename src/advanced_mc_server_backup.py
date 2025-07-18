@@ -4,8 +4,8 @@
 from shutil import make_archive 
 import sys
 import platform
-from datetime import date, datetime
-from os import path, listdir, remove, stat, makedirs
+from datetime import datetime
+from os import path, listdir, remove, stat, makedirs, getenv
 from mcrcon import MCRcon
 import socket
 import time
@@ -13,16 +13,15 @@ import subprocess
 
 #change variables as needed.
 #Config
-SRC_DIR = r"" 		#		the absolute directory to the minecraft server.
-LOG_DIR = r""		#		absolute directory you wish to save the logs file to.
-DEST_DIR = r"" 		# 		absolute directory to where you wish to store the backups.
-MAX_BACKUPS = 10 	#		max number of backups to keep until script starts replacing older backups.
-SERVER_HOST = ""	#		IP of the minecraft server.
-SERVER_PORT = 25565	#		Port of the minecraft server. *default 25565*
-RCON_PORT = 25575	#		Rcon port of the minecraft server. *make sure to enable rcon in the server.properties file*
-RCON_PASSWORD = r""	#		Rcon password to access server. *make it complicated, set-up is in server.properties file*
-START_COMMAND = r""	#		typically the bat file you used to start up the minecraft server with certain java arguments.
-TIMEOUT = 60
+SRC_DIR = getenv("SRC_DIR", "/server")
+LOG_DIR = getenv("LOG_DIR", "/logs")
+DEST_DIR = getenv("DEST_DIR", "/backups")
+MAX_BACKUPS = int(getenv("MAX_BACKUPS", "10"))
+SERVER_HOST = getenv("SERVER_HOST", "localhost")
+SERVER_PORT = int(getenv("SERVER_PORT", "25565"))
+RCON_PORT = int(getenv("RCON_PORT", "25575"))
+RCON_PASSWORD = getenv("RCON_PASSWORD", "")
+CONTAINER_NAME = getenv("CONTAINER_NAME", "minecraft_server")
 
 host_platform = platform.system()
 
@@ -42,17 +41,20 @@ def get_oldest_backup(dirs: list) -> str:
 	old_dir_index = dir_existence_time.index(min_existence)
 	return dirs[old_dir_index]
 
+def log_to_file(log_level, message):
+	timestamp = datetime.now().isoformat()
+	log_entry = f"[{log_level}] [{timestamp}] {message}"
 
-# simple function that utilizes sockets and attempts to create a connection
-# with the minecraft port. If it cannot make a connection, the assumption is
-# that the minecraft server is not up and/or listening on that port.
-def is_server_up() -> bool:
+	print(log_entry)
 	try:
-		with socket.create_connection((SERVER_HOST, SERVER_PORT), timeout=2):
-			return True
-	except (ConnectionRefusedError, socket.timeout, OSError):
-		return False
+		makedirs(LOG_DIR, exist_ok=True)
+		log_path = path.join(LOG_DIR, "minecraft-backup-log.txt")
 
+		with open(log_path, mode="a", encoding="utf-8") as fs:
+			fs.write(log_entry + "\n")
+
+	except (FileNotFoundError, PermissionError, OSError) as e:
+		print(f"[ERROR] Could not write to log file: {e}. Fallback to terminal.")
 
 def stop_server():
 	try:
@@ -68,35 +70,19 @@ def stop_server():
 			mcr.command("say [BACK UP] Server is closing...")
 			mcr.command("save-all")
 			mcr.command("stop")
+
+			# wait for server to fully shut down.
+			subprocess.run(["docker", "wait", CONTAINER_NAME], check=True)
+			log_to_file("INFO", "Server is offline.")
+
 	except Exception as e:
 		log_to_file("ERROR", f"Failed to send RCON command {e}")
 		exit(1)
 
-	# wait for server to fully shut down.
-	start_time = time.time()
-	while is_server_up():
-		if time.time() - start_time > TIMEOUT:
-			log_to_file("ERROR", "Timeout Reached. Server is still up.")
-			exit(1)
-		time.sleep(2)
-	log_to_file("INFO", "Server is offline.")
-
-
 def restart_server():
 	log_to_file("INFO", "Restarting Server...")
 	try:
-		match host_platform:
-			case "Windows":
-				subprocess.Popen(
-					["cmd.exe", "/k", START_COMMAND],
-					cwd=SRC_DIR
-				)
-			case "Linux":
-				screen_cmd = f'screen -dmS minecraft-server bash -c "{START_COMMAND}"'
-				subprocess.run(screen_cmd, cwd=SRC_DIR, shell=True, check=True)
-			case _:
-				print("[ERROR] Unsupported os.")
-				exit(1)
+		subprocess.run(["docker", "start", CONTAINER_NAME], check=True)
 	except Exception as e:
 		log_to_file("ERROR", f"Failed to start server: {e}")
 		exit(1)
@@ -128,27 +114,6 @@ def backup_folder():
 
 	make_archive(base_name=backup_file_dir, format="zip", root_dir=SRC_DIR)
 	log_to_file("INFO", f"{backup_file_name}.zip has been successfully created")
-
-def log_to_file(log_level, message):
-	timestamp = datetime.now().isoformat()
-	log_entry = f"[{log_level}] [{timestamp}] {message}"
-
-	print(log_entry)
-	try:
-		makedirs(LOG_DIR, exist_ok=True)
-		log_path = path.join(LOG_DIR, "minecraft-backup-log.txt")
-
-		with open(log_path, mode="a", encoding="utf-8") as fs:
-			fs.write(log_entry + "\n")
-
-	except (FileNotFoundError, PermissionError, OSError) as e:
-		print(f"[ERROR] Could not write to log file: {e}. Fallback to terminal.")
-
-def send_email_notificaton():
-	pass
-
-def send_discord_notification():
-	pass
 
 def main():
 	stop_server()
