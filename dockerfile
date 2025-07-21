@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y cron
 
 WORKDIR /app
 COPY src/advanced_mc_server_backup.py .
+RUN chmod 766 advanced_mc_server_backup.py
 COPY src/cronfile .
 COPY requirements.txt .
 RUN mkdir server logs backups
