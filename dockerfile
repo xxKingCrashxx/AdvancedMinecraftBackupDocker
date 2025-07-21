@@ -8,7 +8,6 @@ RUN chmod 766 advanced_mc_server_backup.py
 COPY src/cronfile .
 COPY requirements.txt .
 RUN mkdir server logs backups
-RUN touch logs/cron.log
 RUN pip install -r requirements.txt
 RUN crontab cronfile
-CMD ["sh", "-c", "cron && tail -f logs/cron.log"]
+CMD ["sh", "-c", "mkdir -p logs && touch logs/cron.log && cron -f & tail -f logs/cron.log"]
