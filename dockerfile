@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y cron docker-cli
+RUN apt-get update && apt-get install -y cron
 
 WORKDIR /app
 COPY src/advanced_mc_server_backup.py .

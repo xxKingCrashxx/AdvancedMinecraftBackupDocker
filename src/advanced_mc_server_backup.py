@@ -8,12 +8,16 @@ from os import path, listdir, remove, stat, makedirs, getenv, getcwd
 from mcrcon import MCRcon
 import time
 import subprocess
+import docker 
 
 #volume mounting points inside the docker container.
 CURRENT_DIR = getcwd()
 SRC_DIR = path.join(CURRENT_DIR,"server")
 LOG_DIR = path.join(CURRENT_DIR, "logs")
 DEST_DIR = path.join(CURRENT_DIR, "backups")
+
+#docker client
+client = docker.from_env()
 
 #change variables as needed.
 #Config
@@ -71,7 +75,9 @@ def stop_server():
 			mcr.command("stop")
 
 			# wait for server to fully shut down.
-			subprocess.run(["docker", "wait", CONTAINER_NAME], check=True)
+			mc_container = client.containers.get(CONTAINER_NAME)
+			mc_container.wait()
+
 			log_to_file("INFO", "Server is offline.")
 
 	except Exception as e:
@@ -81,7 +87,8 @@ def stop_server():
 def restart_server():
 	log_to_file("INFO", "Restarting Server...")
 	try:
-		subprocess.run(["docker", "start", CONTAINER_NAME], check=True)
+		mc_container = client.containers.get(CONTAINER_NAME)
+		mc_container.start()
 	except Exception as e:
 		log_to_file("ERROR", f"Failed to start server: {e}")
 		exit(1)
