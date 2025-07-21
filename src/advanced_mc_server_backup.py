@@ -1,29 +1,28 @@
 #Author: King_Crash
-#Date: 14 April 2025
+#Date: 20 July 2025
 
 from shutil import make_archive 
 import sys
-import platform
 from datetime import datetime
-from os import path, listdir, remove, stat, makedirs, getenv
+from os import path, listdir, remove, stat, makedirs, getenv, getcwd
 from mcrcon import MCRcon
-import socket
 import time
 import subprocess
 
+#volume mounting points inside the docker container.
+CURRENT_DIR = getcwd()
+SRC_DIR = path.join(CURRENT_DIR,"server")
+LOG_DIR = path.join(CURRENT_DIR, "logs")
+DEST_DIR = path.join(CURRENT_DIR, "backups")
+
 #change variables as needed.
 #Config
-SRC_DIR = getenv("SRC_DIR", "/server")
-LOG_DIR = getenv("LOG_DIR", "/logs")
-DEST_DIR = getenv("DEST_DIR", "/backups")
 MAX_BACKUPS = int(getenv("MAX_BACKUPS", "10"))
 SERVER_HOST = getenv("SERVER_HOST", "localhost")
 SERVER_PORT = int(getenv("SERVER_PORT", "25565"))
 RCON_PORT = int(getenv("RCON_PORT", "25575"))
 RCON_PASSWORD = getenv("RCON_PASSWORD", "")
 CONTAINER_NAME = getenv("CONTAINER_NAME", "minecraft_server")
-
-host_platform = platform.system()
 
 #helper function that gets the st_ctime of all the zip files located in the DEST_DIR
 #searches for the dir with the smallest "existence" time and stores it in a new list

@@ -1,0 +1,1 @@
+59 23 * * * /usr/bin/python3 /app/advanced_mc_server_backup.py >> /app/logs/cron.log 2>&1
