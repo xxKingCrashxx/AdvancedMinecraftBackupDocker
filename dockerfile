@@ -6,7 +6,7 @@ WORKDIR /app
 COPY src/startup.sh .
 COPY src/advanced_mc_server_backup.py .
 RUN chmod 755 advanced_mc_server_backup.py startup.sh
-COPY src/cronfile .
+COPY cronfile .
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 CMD ["bash", "startup.sh"]
